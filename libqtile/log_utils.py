@@ -66,17 +66,21 @@ class ColorFormatter(Formatter):
         return message + self.reset_seq
 
 
-def init_log(log_level=WARNING, log_path=True, log_truncate=False,
-             log_size=10000000, log_numbackups=1, log_color=True):
+def init_log(
+        log_level=WARNING, log_path=True, log_truncate=False,
+        log_size=10000000, log_numbackups=1, log_color=True,
+        logger=logger):
     formatter = Formatter(
-        "%(asctime)s %(levelname)s %(name)s %(filename)s:%(funcName)s():L%(lineno)d %(message)s"
+        "%(asctime)s %(levelname)s %(name)s "
+        "%(filename)s:%(funcName)s():L%(lineno)d %(message)s"
     )
 
     # We'll always use a stream handler
     stream_handler = StreamHandler(sys.stdout)
     if log_color:
         color_formatter = ColorFormatter(
-            '$RESET$COLOR%(asctime)s $BOLD$COLOR%(name)s %(filename)s:%(funcName)s():L%(lineno)d $RESET %(message)s'
+            '$RESET$COLOR%(asctime)s $BOLD$COLOR%(name)s '
+            '%(filename)s:%(funcName)s():L%(lineno)d $RESET %(message)s'
         )
         stream_handler.setFormatter(color_formatter)
     else:
