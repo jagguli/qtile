@@ -328,7 +328,7 @@ class TreeTab(Layout):
         ("border_width", 2, "Width of the border"),
         ("vspace", 2, "Space between tabs"),
         ("level_shift", 8, "Shift for children tabs"),
-        ("font", "Arial", "Font"),
+        ("font", "sans", "Font"),
         ("fontsize", 14, "Font pixel size."),
         ("fontshadow", None, "font shadow color, default is None (no shadow)"),
         ("section_fontsize", 11, "Font pixel size of section label"),
@@ -427,13 +427,13 @@ class TreeTab(Layout):
         self._panel.handle_Expose = self._panel_Expose
         self._panel.handle_ButtonPress = self._panel_ButtonPress
         self.group.qtile.windowMap[self._panel.window.wid] = self._panel
-        hook.subscribe.window_name_change(self.draw_panel)
+        hook.subscribe.client_name_updated(self.draw_panel)
         hook.subscribe.focus_change(self.draw_panel)
 
     def _panel_Expose(self, e):
         self.draw_panel()
 
-    def draw_panel(self):
+    def draw_panel(self, *args):
         if not self._panel:
             return
         self._drawer.clear(self.bg_color)

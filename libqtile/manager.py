@@ -49,6 +49,7 @@ from .log_utils import logger
 from .state import QtileState
 from .utils import QtileError, get_cache_dir
 from .widget.base import _Widget
+from .extension.base import _Extension
 from . import command
 from . import hook
 from . import utils
@@ -80,6 +81,7 @@ class Qtile(command.CommandObject):
     """This object is the `root` of the command graph"""
 
     def __init__(self, config, displayName=None, fname=None, no_spawn=False, state=None):
+        self._restart = False
         self.no_spawn = no_spawn
 
         self._eventloop = None
@@ -163,6 +165,14 @@ class Qtile(command.CommandObject):
             _Widget.global_defaults = config.widget_defaults
         else:
             _Widget.global_defaults = {}
+
+        if hasattr(config, "extension_defaults") and config.extension_defaults:
+            _Extension.global_defaults = config.extension_defaults
+        else:
+            _Extension.global_defaults = {}
+
+        for installed_extension in _Extension.installed_extensions:
+            installed_extension._configure(self)
 
         for i in self.groups:
             self.groupMap[i.name] = i
@@ -330,6 +340,9 @@ class Qtile(command.CommandObject):
         finally:
             self._eventloop.close()
             self._eventloop = None
+        if self._restart:
+            logger.warning('Restarting Qtile with os.execv(...)')
+            os.execv(*self._restart)
 
     def _process_fake_screens(self):
         """
@@ -457,9 +470,9 @@ class Qtile(command.CommandObject):
         )
         self.root.set_property("_NET_CURRENT_DESKTOP", index)
 
-    def addGroup(self, name, layout=None, layouts=None):
+    def addGroup(self, name, layout=None, layouts=None, label=None):
         if name not in self.groupMap.keys():
-            g = _Group(name, layout)
+            g = _Group(name, layout, label=label)
             self.groups.append(g)
             if not layouts:
                 layouts = self.config.layouts
@@ -1367,17 +1380,11 @@ class Qtile(command.CommandObject):
             return v.args[0]
         self.handle_KeyPress(d)
 
-    def cmd_execute(self, cmd, args):
-        """Executes the specified command, replacing the current process"""
-        self.stop()
-        os.execv(cmd, args)
-
     def cmd_restart(self):
-        """Restart qtile using the execute command"""
+        """Restart qtile"""
         argv = [sys.executable] + sys.argv
         if '--no-spawn' not in argv:
             argv.append('--no-spawn')
-
         buf = io.BytesIO()
         try:
             pickle.dump(QtileState(self), buf, protocol=0)
@@ -1385,8 +1392,8 @@ class Qtile(command.CommandObject):
             logger.error("Unable to pickle qtile state")
         argv = [s for s in argv if not s.startswith('--with-state')]
         argv.append('--with-state=' + buf.getvalue().decode())
-
-        self.cmd_execute(sys.executable, argv)
+        self._restart = (sys.executable, argv)
+        self.stop()
 
     def cmd_spawn(self, cmd):
         """Run cmd in a shell.
@@ -1696,9 +1703,9 @@ class Qtile(command.CommandObject):
             return
         mb.startInput(prompt, f, "qshell")
 
-    def cmd_addgroup(self, group):
+    def cmd_addgroup(self, group, label=None):
         """Add a group with the given name"""
-        return self.addGroup(group)
+        return self.addGroup(group, label=label)
 
     def cmd_delgroup(self, group):
         """Delete a group with the given name"""
@@ -1820,12 +1827,24 @@ class Qtile(command.CommandObject):
         tracemalloc.take_snapshot().dump(malloc_dump)
         return [True, malloc_dump]
 
-    def cmd_run_extention(self, cls):
-        """Deprecated alias for cmd_run_extension()"""
-        # TODO: Remove this method in the future
-        return self.cmd_run_extension(cls)
+    def cmd_get_test_data(self):
+        """
+        Returns any content arbitrarily set in the self.test_data attribute.
+        Useful in tests.
+        """
+        return self.test_data
 
-    def cmd_run_extension(self, cls):
-        """Extensions should run from command run()"""
-        c = cls(self)
-        c.run()
+    def cmd_run_extention(self, cls):
+        """
+        Deprecated alias for cmd_run_extension()
+
+        Note that it was accepting an extension class, not an instance.
+        """
+        # TODO: Remove this method in the future
+        extension = cls()
+        extension._configure(self)
+        return self.cmd_run_extension(extension)
+
+    def cmd_run_extension(self, extension):
+        """Run extensions"""
+        extension.run()

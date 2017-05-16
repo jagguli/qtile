@@ -427,6 +427,7 @@ class Group(object):
 
     These groups can spawn apps, only allow certain Matched windows to be on
     them, hide when they're not in use, etc.
+    Groups are identified by their name.
 
     Parameters
     ==========
@@ -440,20 +441,29 @@ class Group(object):
         this will be ``exec()`` d when the group is created, you can pass
         either a program name or a list of programs to ``exec()``
     layout : string
-        the default layout for this group (e.g. 'max' or 'stack')
+        the name of default layout for this group (e.g. 'max' or 'stack').
+        This is the name specified for a particular layout in config.py
+        or if not defined it defaults in general the class name in all lower case.
     layouts : list
-        the group layouts list overriding global layouts
+        the group layouts list overriding global layouts.
+        Use this to define a separate list of layouts for this particular group.
     persist : boolean
         should this group stay alive with no member windows?
     init : boolean
         is this group alive when qtile starts?
     position : int
         group position
+    label : string
+        the display name of the group.
+        Use this to define a display name other than name of the group.
+        If set to None, the display name is set to the name.
     """
     def __init__(self, name, matches=None, exclusive=False,
                  spawn=None, layout=None, layouts=None, persist=True, init=True,
-                 layout_opts=None, screen_affinity=None, position=MAXSIZE):
+                 layout_opts=None, screen_affinity=None, position=MAXSIZE,
+                 label=None):
         self.name = name
+        self.label = label
         self.exclusive = exclusive
         self.spawn = spawn
         self.layout = layout

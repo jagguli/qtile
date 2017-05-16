@@ -97,7 +97,7 @@ class Wmii(Layout):
 
     def info(self):
         d = Layout.info(self)
-        d["current_window"] = self.current_window
+        d["current_window"] = self.current_window.name if self.current_window else None
         d["clients"] = [x.name for x in self.clients]
         return d
 
@@ -134,7 +134,11 @@ class Wmii(Layout):
             if len(self.columns) == 0:
                 self.columns = [{'active': 0, 'width': 100, 'mode': 'split', 'rows': []}]
             c = self.columns[0]
-        c['rows'].append(client)
+        # Insert the new window after the current one, not at the bottom of the
+        # stack, which would feel unnatural for example when a new tiled window
+        # is opened from within an application (new browser window, options
+        # window etc.)
+        c['rows'].insert(c['active'] + 1, client)
         self.focus(client)
 
     def remove(self, client):
@@ -150,9 +154,7 @@ class Wmii(Layout):
                     if client == self.current_window:
                         if ridx > 0:
                             ridx -= 1
-                        newclient = c['rows'][ridx]
-                        self.focus(newclient)
-                    self.group.focus(self.current_window)
+                        return c['rows'][ridx]
                     return self.current_window
                 # column is now empty, remove it and select the previous one
                 self.columns.remove(c)
@@ -168,10 +170,7 @@ class Wmii(Layout):
                     cidx -= 1
                 c = self.columns[cidx]
                 rows = c['rows']
-                newclient = rows[0]
-                self.focus(newclient)
-                self.group.focus(newclient)
-                return newclient
+                return rows[0]
 
     def is_last_column(self, cidx):
             return cidx == len(self.columns) - 1
@@ -240,12 +239,36 @@ class Wmii(Layout):
         self.group.layoutAll()
 
     def focus_next(self, win):
-        self.cmd_down()
-        return self.curent_window
+        # First: try to get next window in column of win
+        for idx, col in enumerate(self.columns):
+            rows = col['rows']
+            if win in rows:
+                i = rows.index(win)
+                if i + 1 < len(rows):
+                    return rows[i + 1]
+                else:
+                    break
+        # if there was no next, get first client from next column
+        if idx + 1 < len(self.columns):
+            rows = self.columns[idx + 1]['rows']
+            if len(rows):
+                return rows[0]
 
     def focus_previous(self, win):
-        self.cmd_up()
-        return self.current_window
+        # First: try to focus previous client in column
+        for idx, col in enumerate(self.columns):
+            rows = col['rows']
+            if win in rows:
+                i = rows.index(win)
+                if i > 0:
+                    return rows[i - 1]
+                else:
+                    break
+        # If there was no previous, get last from previous column
+        if idx > 0:
+            rows = self.columns[idx + 1]['rows']
+            if len(rows):
+                return rows[-1]
 
     def focus_first(self):
         if len(self.columns) == 0:

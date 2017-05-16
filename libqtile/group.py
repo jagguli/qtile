@@ -42,9 +42,12 @@ class _Group(command.CommandObject):
 
     Analogous to workspaces in other window managers. Each client window
     managed by the window manager belongs to exactly one group.
+
+    A group is identified by its name but displayed in GroupBox widget by its label.
     """
-    def __init__(self, name, layout=None):
+    def __init__(self, name, layout=None, label=None):
         self.name = name
+        self.label = name if label is None else label
         self.customLayout = layout  # will be set on _configure
         self.windows = set()
         self.qtile = None
@@ -236,6 +239,7 @@ class _Group(command.CommandObject):
     def info(self):
         return dict(
             name=self.name,
+            label=self.label,
             focus=self.currentWindow.name if self.currentWindow else None,
             windows=[i.name for i in self.windows],
             focusHistory=[i.name for i in self.focusHistory],
@@ -415,6 +419,13 @@ class _Group(command.CommandObject):
         self.layoutAll()
 
     def cmd_next_window(self):
+        """
+        Focus the next window in group.
+
+        Method cycles _all_ windows in group regardless if tiled in current
+        layout or floating. Cycling of tiled and floating windows is not mixed.
+        The cycling order depends on the current Layout.
+        """
         if not self.windows:
             return
         if self.currentWindow.floating:
@@ -428,6 +439,13 @@ class _Group(command.CommandObject):
         self.focus(nxt, True)
 
     def cmd_prev_window(self):
+        """
+        Focus the previous window in group.
+
+        Method cycles _all_ windows in group regardless if tiled in current
+        layout or floating. Cycling of tiled and floating windows is not mixed.
+        The cycling order depends on the current Layout.
+        """
         if not self.windows:
             return
         if self.currentWindow.floating:
@@ -440,9 +458,52 @@ class _Group(command.CommandObject):
                 self.layout.focus_last()
         self.focus(nxt, True)
 
+    def cmd_focus_back(self):
+        """
+        Focus the window that had focus before the current one got it.
+
+        Repeated calls to this function would basically continuously switch
+        between the last two focused windows. Do nothing if less than 2
+        windows ever received focus.
+        """
+        try:
+            win = self.focusHistory[-2]
+        except IndexError:
+            pass
+        else:
+            self.focus(win)
+
+    def cmd_focus_by_name(self, name):
+        """
+        Focus the first window with the given name. Do nothing if the name is
+        not found.
+        """
+        for win in self.windows:
+            if win.name == name:
+                self.focus(win)
+                break
+
+    def cmd_info_by_name(self, name):
+        """
+        Get the info for the first window with the given name without giving it
+        focus. Do nothing if the name is not found.
+        """
+        for win in self.windows:
+            if win.name == name:
+                return win.info()
+
     def cmd_switch_groups(self, name):
         """Switch position of current group with name"""
         self.qtile.cmd_switch_groups(self.name, name)
+
+    def cmd_set_label(self, label):
+        """
+        Set the display name of current group to be used in GroupBox widget.
+        If label is None, the name of the group is used as display name.
+        If label is the empty string, the group is invisible in GroupBox.
+        """
+        self.label = label if label is not None else self.name
+        hook.fire("changegroup")
 
     def __repr__(self):
         return "<group.Group (%r)>" % self.name

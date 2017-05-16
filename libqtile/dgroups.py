@@ -120,7 +120,7 @@ class DGroups(object):
         rules = [Rule(m, group=group.name) for m in group.matches]
         self.rules.extend(rules)
         if start:
-            self.qtile.addGroup(group.name, group.layout, group.layouts)
+            self.qtile.addGroup(group.name, group.layout, group.layouts, group.label)
 
     def _setup_groups(self):
         for group in self.groups:
@@ -230,8 +230,11 @@ class DGroups(object):
         self.sort_groups()
 
     def sort_groups(self):
-        self.qtile.groups.sort(key=lambda g: self.groupMap[g.name].position)
-        libqtile.hook.fire("setgroup")
+        grps = self.qtile.groups
+        sorted_grps = sorted(grps, key=lambda g: self.groupMap[g.name].position)
+        if grps != sorted_grps:
+            self.qtile.groups = sorted_grps
+            libqtile.hook.fire("changegroup")
 
     def _del(self, client):
         group = client.group

@@ -70,6 +70,8 @@ def init_log(
         log_level=WARNING, log_path=True, log_truncate=False,
         log_size=10000000, log_numbackups=1, log_color=True,
         logger=logger):
+    for handler in logger.handlers:
+        logger.removeHandler(handler)
     formatter = Formatter(
         "%(asctime)s %(levelname)s %(name)s "
         "%(filename)s:%(funcName)s():L%(lineno)d %(message)s"
